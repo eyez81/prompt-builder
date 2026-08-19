@@ -1,104 +1,29 @@
 "use strict";
-
-const emptyForm={task:"",audience:"",context:"",material:"",sourceMode:"",format:"",length:"",tone:"",criteria:"",askQuestions:true,verifyFacts:true,avoidInventing:true};
-const templates=[
- {label:"בניית שיעור",icon:"◫",form:{task:"בנה מערך שיעור בנושא",audience:"תלמידי כיתה ט׳",context:"שיעור של 45 דקות בכיתה הטרוגנית",format:"טבלה עם שלבי השיעור, זמן, פעילות מורה ופעילות תלמידים",criteria:"כלול פתיחה מסקרנת, תרגול פעיל ובדיקת הבנה קצרה"}},
- {label:"הסבר מושג",icon:"◎",form:{task:"הסבר את המושג",audience:"תלמידים ללא ידע מוקדם",format:"הסבר קצר, דוגמה מחיי היום־יום ושאלת בדיקה",tone:"פשוט, בהיר ולא מתיילד"}},
- {label:"יצירת פעילות",icon:"✦",form:{task:"צור פעילות לימודית בנושא",audience:"תלמידי חטיבת ביניים",context:"עבודה בזוגות במשך 20 דקות",format:"הנחיות לתלמידים, שלבים ותוצר סופי",criteria:"הפעילות צריכה לדרוש חשיבה ולא רק איתור מידע"}},
- {label:"מחקר והשוואה",icon:"⌕",form:{task:"השווה בין",format:"טבלת השוואה ולאחריה מסקנה מנומקת",criteria:"הפרד בין עובדות, פרשנות ומסקנות; ציין אי־ודאות",sourceMode:"search",verifyFacts:true}},
- {label:"כתיבה ועריכה",icon:"✎",form:{task:"ערוך ושפר את הטקסט הבא",format:"גרסה ערוכה ולאחריה רשימה קצרה של השינויים המרכזיים",tone:"טבעי, מדויק ובהיר",criteria:"שמור על המשמעות ועל הקול של הכותב",sourceMode:"only"}}
-];
-const steps=[{label:"המשימה",title:"מה בדיוק תרצו לקבל?"},{label:"הקשר",title:"למי, למה ובאילו תנאים?"},{label:"התוצר",title:"איך התשובה צריכה להיראות?"},{label:"דיוק",title:"מה יהפוך את התשובה לטובה?"}];
-const fieldIds=["task","audience","context","material","sourceMode","format","length","tone","criteria","askQuestions","verifyFacts","avoidInventing"];
-let form={...emptyForm},activeStep=0;
-const byId=id=>document.getElementById(id);
-
-function load(){try{const saved=localStorage.getItem("prompt-builder-he");if(saved)form={...emptyForm,...JSON.parse(saved)}}catch{} syncFields()}
-function save(){try{localStorage.setItem("prompt-builder-he",JSON.stringify(form))}catch{}}
-function syncFields(){fieldIds.forEach(id=>{const el=byId(id);if(!el)return;if(el.type==="checkbox")el.checked=Boolean(form[id]);else el.value=form[id]||""});renderPrompt()}
-function bindFields(){fieldIds.forEach(id=>{const el=byId(id);if(!el)return;el.addEventListener("input",e=>{form[id]=e.target.type==="checkbox"?e.target.checked:e.target.value;save();renderPrompt()});el.addEventListener("change",e=>{form[id]=e.target.type==="checkbox"?e.target.checked:e.target.value;save();renderPrompt()})})}
-
-function sourceInstruction(){
- if(form.sourceMode==="only")return "הסתמך רק על החומר והמקורות שסיפקתי. אם המידע הדרוש אינו מופיע בהם, ציין זאת ואל תשלים מידע מבחוץ.";
- if(form.sourceMode==="external")return "אפשר להיעזר גם בידע חיצוני מעבר לחומר שסיפקתי, תוך הבחנה ברורה בין המידע שסיפקתי לבין מידע נוסף.";
- if(form.sourceMode==="search")return "כאשר יש לך גישה לחיפוש או למקורות חיצוניים, חפש מידע רלוונטי ואמת טענות מרכזיות באמצעות מקורות אמינים ועדכניים. אם אין לך גישה כזו, ציין זאת.";
- return "";
-}
-
-function buildPrompt(){
- const s=[];
- if(form.task.trim())s.push(`המשימה:\n${form.task.trim()}`);
- const context=[form.audience.trim()&&`קהל היעד: ${form.audience.trim()}`,form.context.trim()&&`הקשר ומגבלות: ${form.context.trim()}`].filter(Boolean);if(context.length)s.push(`הקשר:\n${context.join("\n")}`);
- if(form.material.trim())s.push(`מידע או חומר שעליו יש להתבסס:\n${form.material.trim()}`);
- const sourceRule=sourceInstruction();if(sourceRule)s.push(`שימוש במקורות:\n${sourceRule}`);
- const output=[form.format.trim()&&`פורמט: ${form.format.trim()}`,form.length.trim()&&`אורך: ${form.length.trim()}`,form.tone.trim()&&`סגנון: ${form.tone.trim()}`].filter(Boolean);if(output.length)s.push(`דרישות לתוצר:\n${output.join("\n")}`);
- if(form.criteria.trim())s.push(`קריטריונים להצלחה:\n${form.criteria.trim()}`);
- const rules=[form.askQuestions&&"אם חסר מידע חיוני לביצוע המשימה, שאל עד 3 שאלות הבהרה לפני כתיבת התשובה.",form.verifyFacts&&"כאשר ניתן, אמת עובדות מרכזיות באמצעות המקורות או הכלים הזמינים לך. אם אין אפשרות לאמת, ציין זאת והבחן בין עובדה, הערכה ואי־ודאות.",form.avoidInventing&&"אל תמציא מידע. אם אינך יודע או שאין די מידע, אמור זאת במפורש."].filter(Boolean);if(rules.length)s.push(`כללי עבודה:\n${rules.map(x=>`• ${x}`).join("\n")}`);
- return s.join("\n\n");
-}
-
-function getScore(){
- if(!form.task.trim())return 0;
- let score=35;
- if(form.task.trim().length>=25)score+=10;
- if(form.audience.trim())score+=10;
- if(form.context.trim())score+=10;
- if(form.material.trim()||form.sourceMode)score+=8;
- if(form.format.trim())score+=10;
- if(form.length.trim()||form.tone.trim())score+=5;
- if(form.criteria.trim())score+=7;
- if(form.askQuestions||form.verifyFacts||form.avoidInventing)score+=5;
- return Math.min(100,score);
-}
-
-function getFeedback(score){
- if(!form.task.trim())return ["התחילו מהמשימה","כתבו מה בדיוק תרצו שהבינה תעשה"];
- const missing=[];
- if(form.task.trim().length<25)missing.push("דייקו מעט יותר את המשימה");
- if(!form.audience.trim()&&!form.context.trim())missing.push("הוסיפו קהל יעד או הקשר");
- if(!form.format.trim())missing.push("הגדירו איך התוצר צריך להיראות");
- if(!form.criteria.trim())missing.push("הוסיפו קריטריון להצלחה");
- if(!form.sourceMode&&form.material.trim())missing.push("הגדירו כיצד להשתמש במקורות");
- if(score>=90)return ["פרומפט חזק מאוד","המשימה, ההקשר והדרישות מוגדרים היטב"];
- if(score>=75)return ["פרומפט חזק",missing[0]||"ברור, ממוקד וניתן לביצוע"];
- if(score>=50)return ["כיוון טוב",missing[0]||"אפשר להוסיף עוד מעט דיוק"];
- return ["כדאי להוסיף פרטים",missing[0]||"הוסיפו הקשר ודרישות לתוצר"];
-}
-
-function renderPrompt(){
- const prompt=buildPrompt(),paper=byId("promptPaper");
- if(prompt){const pre=document.createElement("pre");pre.textContent=prompt;paper.replaceChildren(pre)}else{paper.innerHTML='<div class="empty-result"><span>✦</span><p>הפרומפט יופיע כאן</p><small>התחילו בתיאור המשימה או בחרו תבנית</small></div>'}
- const hasTask=Boolean(form.task.trim());byId("copyButton").disabled=!hasTask;
- const score=getScore(),feedback=getFeedback(score);
- byId("score").textContent=score;byId("scoreRing").style.setProperty("--score",`${score*3.6}deg`);
- byId("scoreTitle").textContent=feedback[0];byId("scoreText").textContent=feedback[1];
-}
-
-function renderStep(){
- document.querySelectorAll(".step-view").forEach((el,i)=>el.classList.toggle("active",i===activeStep));
- document.querySelectorAll(".stepper button").forEach((el,i)=>el.classList.toggle("active",i===activeStep));
- byId("stepNumber").textContent=activeStep+1;byId("stepLabel").textContent=steps[activeStep].label;byId("stepTitle").textContent=steps[activeStep].title;
- byId("prevButton").disabled=activeStep===0;byId("nextButton").innerHTML=activeStep===3?'העתקת הפרומפט':'לשלב הבא <span>←</span>';
- if(activeStep===3)byId("nextButton").disabled=!form.task.trim();else byId("nextButton").disabled=false;
-}
-
-function applyTemplate(template){
- Object.entries(template.form).forEach(([key,value])=>{if(!form[key]||String(form[key]).trim()==="")form[key]=value});
- activeStep=0;syncFields();save();renderStep();byId("task").focus();
-}
-function appendField(field,value){if(!form[field])form[field]=value;else if(!form[field].includes(value))form[field]=`${form[field]}, ${value}`;syncFields();save()}
-async function copyPrompt(){const text=buildPrompt();if(!form.task.trim()||!text)return;try{await navigator.clipboard.writeText(text)}catch{const area=document.createElement("textarea");area.value=text;document.body.appendChild(area);area.select();document.execCommand("copy");area.remove()}const button=byId("copyButton"),old=button.innerHTML;button.innerHTML="<span>✓</span>הועתק!";setTimeout(()=>button.innerHTML=old,1800)}
-
-function init(){
- templates.forEach(template=>{const button=document.createElement("button");button.innerHTML=`<span>${template.icon}</span>${template.label}`;button.addEventListener("click",()=>applyTemplate(template));byId("templateList").appendChild(button)});
- steps.forEach((step,i)=>{const button=document.createElement("button");button.innerHTML=`<span>${i+1}</span><b>${step.label}</b>`;button.addEventListener("click",()=>{activeStep=i;renderStep()});byId("stepper").appendChild(button)});
- [{label:"טבלה השוואתית",field:"format"},{label:"שלבים ממוספרים",field:"format"},{label:"דוגמה מלאה",field:"criteria"},{label:"עברית פשוטה",field:"tone"}].forEach(item=>{const button=document.createElement("button");button.textContent=item.label;button.addEventListener("click",()=>appendField(item.field,item.label));byId("suggestionChips").appendChild(button)});
- bindFields();load();renderStep();
- byId("prevButton").addEventListener("click",()=>{if(activeStep>0){activeStep--;renderStep()}});
- byId("nextButton").addEventListener("click",()=>{if(activeStep<3){activeStep++;renderStep()}else copyPrompt()});
- byId("copyButton").addEventListener("click",copyPrompt);
- byId("clearButton").addEventListener("click",()=>{form={...emptyForm};activeStep=0;syncFields();save();renderStep()});
- const modal=byId("tipsModal"),close=()=>{modal.hidden=true;byId("openTips").focus()};
- byId("openTips").addEventListener("click",()=>{modal.hidden=false;byId("closeTips").focus()});byId("closeTips").addEventListener("click",close);byId("acceptTips").addEventListener("click",close);modal.addEventListener("click",e=>{if(e.target===modal)close()});document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!modal.hidden)close()});
-}
-document.addEventListener("DOMContentLoaded",init);
+const empty={purpose:"",task:"",learningGoal:"",grade:"",level:"",priorKnowledge:"",context:"",material:"",sourceMode:"",format:"",lengthValue:"",lengthUnit:"",tone:"",criteria:"",askQuestions:true,verifyFacts:true,avoidInventing:true};
+let form={...empty},step=0;
+const $=id=>document.getElementById(id);
+const fields=Object.keys(empty).filter(k=>k!=="purpose");
+const purposes=[{id:"lesson",label:"בניית שיעור",icon:"◫",seed:{task:"בנה מערך שיעור בנושא ",format:"מערך שיעור עם פתיחה, פעילות מרכזית ובדיקת הבנה"}},{id:"activity",label:"יצירת פעילות",icon:"✦",seed:{task:"צור פעילות לימודית בנושא ",format:"הנחיות ברורות לתלמידים ותוצר סופי"}},{id:"explain",label:"הסבר נושא",icon:"◎",seed:{task:"הסבר את הנושא ",format:"הסבר מדורג עם דוגמה ובדיקת הבנה"}},{id:"practice",label:"יצירת תרגול",icon:"✓",seed:{task:"צור תרגול בנושא ",criteria:"כלול מדרג קושי ופתרונות"}},{id:"assessment",label:"הערכה / מחוון",icon:"◇",seed:{task:"בנה כלי הערכה עבור ",format:"מחוון עם קריטריונים ורמות ביצוע"}},{id:"differentiate",label:"התאמה לרמות",icon:"↕",seed:{task:"התאם את החומר הבא לרמות שונות ",criteria:"צור לפחות שלוש רמות קושי ושמור על אותה מטרת למידה"}},{id:"presentation",label:"מצגת",icon:"▣",seed:{task:"בנה מבנה למצגת בנושא ",lengthUnit:"שקופיות"}},{id:"research",label:"מחקר",icon:"⌕",seed:{task:"חקור את הנושא ",sourceMode:"search",criteria:"הפרד בין עובדות, פרשנות ואי־ודאות"}}];
+const steps=[['מטרה','מה אתם רוצים שהבינה תעשה?'],['הקשר','למי, למה ובאילו תנאים?'],['תוצר','איך התשובה צריכה להיראות?'],['דיוק','איך נדע שהתוצאה טובה?']];
+const actionWords=['צור','בנה','הסבר','השווה','נתח','ערוך','כתוב','תכנן','פתח','הצע','סכם','חקור','הכן','התאם','נסח','פתור','בדוק','דרג','זהה','נמק','הדגם','תן'];
+const hebrewWords=['שיעור','תלמיד','תלמידים','כיתה','פעילות','נושא','הסבר','תרגול','שאלה','שאלות','טבלה','מצגת','מורה','מורים','מחקר','מידע','מטרה','למידה','דוגמה','דוגמאות','טקסט','ידע','קבוצה','השוואה','פתרון','משימה','תוצר','מילים','פסקאות','מקורות','עובדות','רמה','קושי','זמן','דקות','חומר','כתוב','צור','בנה','הסבר','השווה','נתח','ערוך','תכנן','הצע','סכם','חקור','הכן','התאם','נסח','פתור','בדוק','נמק'];
+function words(v){return (v||'').trim().split(/\s+/).filter(Boolean)}
+function suspicious(v){const t=(v||'').trim();if(!t)return false;if(/^\d+$/.test(t))return true;const ws=words(t);if(ws.length===1&&t.length>7&&!hebrewWords.some(x=>t.includes(x)))return true;if(ws.length>1){const known=ws.filter(w=>hebrewWords.some(x=>w.includes(x)||x.includes(w))).length;if(known===0&&ws.every(w=>/^[א-ת]+$/.test(w))&&t.length<45)return true}const chars=t.replace(/[^א-תa-zA-Z]/g,'');if(chars.length>7){const unique=new Set(chars).size;if(unique/chars.length<.28)return true}return false}
+function meaningful(v,min=2){return words(v).length>=min&&!suspicious(v)}
+function taskQuality(){const t=form.task.trim();if(!t)return 0;if(suspicious(t))return 3;let n=8;if(words(t).length>=4)n+=5;if(words(t).length>=8)n+=4;if(actionWords.some(a=>t.includes(a)))n+=5;if(/[,.?]/.test(t)||words(t).length>=12)n+=3;return Math.min(25,n)}
+function contextQuality(){let n=0;if(form.grade)n+=5;if(form.level)n+=3;if(meaningful(form.priorKnowledge,2))n+=4;if(meaningful(form.context,3))n+=6;if(form.material.trim()&&!suspicious(form.material))n+=4;if(form.sourceMode)n+=3;return Math.min(25,n)}
+function outputQuality(){let n=0;if(meaningful(form.format,1))n+=10;if(form.lengthValue&&form.lengthUnit)n+=5;if(meaningful(form.tone,1))n+=5;return Math.min(20,n)}
+function precisionQuality(){let n=0;if(meaningful(form.learningGoal,3))n+=10;if(meaningful(form.criteria,3))n+=10;if(form.askQuestions)n+=3;if(form.verifyFacts)n+=4;if(form.avoidInventing)n+=3;return Math.min(30,n)}
+function quality(){if(!form.task.trim())return {task:0,context:0,output:0,precision:0,total:0};const q={task:taskQuality(),context:contextQuality(),output:outputQuality(),precision:precisionQuality()};q.total=q.task+q.context+q.output+q.precision;if(suspicious(form.task))q.total=Math.min(q.total,15);return q}
+function issues(){const a=[];if(!form.task.trim())a.push('כתבו קודם מה הבינה צריכה לעשות.');else if(suspicious(form.task))a.push('המשימה נראית כמו טקסט לא משמעותי או קצר מדי. נסחו בקשה אמיתית במילים ברורות.');else{if(!actionWords.some(x=>form.task.includes(x)))a.push('כדאי להתחיל את המשימה בפועל ברור כמו צור, הסבר, השווה או נתח.');if(words(form.task).length<5)a.push('המשימה קצרה מאוד. הוסיפו מה בדיוק צריך להפיק או לעשות.')}if(!form.grade&&!form.context&&!form.priorKnowledge)a.push('אם הקהל משנה את התשובה, הוסיפו שכבה, ידע קודם או הקשר.');if(!form.learningGoal&&['lesson','activity','practice','differentiate'].includes(form.purpose))a.push('במשימה פדגוגית כדאי להגדיר מה התלמידים צריכים לדעת או לעשות בסוף.');if(form.material&&suspicious(form.material))a.push('החומר שהוזן נראה לא משמעותי. בדקו שהודבק מידע אמיתי.');if(!form.format)a.push('הגדירו את צורת התוצר הרצויה — למשל טבלה, פעילות, מדריך או שאלון.');if(form.lengthValue&&!form.lengthUnit)a.push('הוספתם מספר לאורך אבל לא יחידה. בחרו מילים, שקופיות, שאלות וכדומה.');if(!form.criteria)a.push('אפשר לחזק את הפרומפט בעזרת תנאי הצלחה אחד או שניים.');return a.slice(0,4)}
+function sourceRule(){return form.sourceMode==='only'?'הסתמך רק על החומר שסיפקתי. אם מידע חיוני אינו נמצא בו, ציין זאת ואל תשלים מבחוץ.':form.sourceMode==='external'?'אפשר להיעזר גם בידע חיצוני, אך הבחן בין החומר שסיפקתי לבין מידע נוסף.':form.sourceMode==='search'?'אם יש לך גישה לחיפוש, השתמש במקורות אמינים ועדכניים ואמת טענות מרכזיות. אם אין לך גישה, ציין זאת.':''}
+function audience(){return [form.grade&&`שכבה: ${form.grade}`,form.level&&`רמה: ${form.level}`,form.priorKnowledge&&`ידע קודם: ${form.priorKnowledge}`].filter(Boolean).join('\n')}
+function build(){const s=[];if(form.task.trim())s.push(`המשימה:\n${form.task.trim()}`);if(form.learningGoal.trim())s.push(`מטרת הלמידה:\n${form.learningGoal.trim()}`);const aud=audience();if(aud||form.context.trim())s.push(`קהל והקשר:\n${[aud,form.context.trim()&&`הקשר ומגבלות: ${form.context.trim()}`].filter(Boolean).join('\n')}`);if(form.material.trim())s.push(`חומר שעליו יש להתבסס:\n${form.material.trim()}`);if(sourceRule())s.push(`שימוש במקורות:\n${sourceRule()}`);const out=[form.format&&`פורמט: ${form.format}`,form.lengthValue&&form.lengthUnit&&`אורך: ${form.lengthValue} ${form.lengthUnit}`,form.tone&&`סגנון: ${form.tone}`].filter(Boolean);if(out.length)s.push(`דרישות לתוצר:\n${out.join('\n')}`);if(form.criteria)s.push(`קריטריונים להצלחה:\n${form.criteria}`);const rules=[form.askQuestions&&'אם חסר מידע חיוני, שאל עד 3 שאלות הבהרה לפני כתיבת התשובה.',form.verifyFacts&&'כאשר ניתן, אמת עובדות מרכזיות באמצעות המקורות או הכלים הזמינים. אם אין אפשרות לאמת, ציין זאת.',form.avoidInventing&&'אל תמציא מידע. אם אין די מידע, אמור זאת במפורש.'].filter(Boolean);if(rules.length)s.push(`כללי עבודה:\n${rules.map(x=>'• '+x).join('\n')}`);return s.join('\n\n')}
+function coach(){const t=$('taskCoach');if(!form.task.trim()){t.textContent='💡 התחילו בפועל ברור: צור, הסבר, השווה, נתח, ערוך, בנה...';t.className='coach'}else if(suspicious(form.task)){t.textContent='⚠️ הטקסט לא נראה כמו משימה משמעותית. נסחו בקשה במילים ברורות.';t.className='coach bad'}else if(words(form.task).length<5){t.textContent='🟡 המשימה מובנת חלקית. נסו להוסיף מה בדיוק תרצו לקבל.';t.className='coach warn'}else{t.textContent='✓ המשימה נראית ברורה וניתנת לביצוע.';t.className='coach good'}}
+function render(){coach();const q=quality(),is=issues(),p=build();$('score').textContent=q.total;$('scoreRing').style.setProperty('--score',`${q.total*3.6}deg`);$('scoreTitle').textContent=q.total>=85?'פרומפט חזק':q.total>=65?'כיוון טוב':q.total>=35?'יש בסיס — כדאי לדייק':'צריך עוד עבודה';$('scoreText').textContent=is[0]||'הבקשה כוללת מספיק מידע לביצוע טוב.';$('qualityBreakdown').innerHTML=[['משימה',q.task,25],['הקשר',q.context,25],['תוצר',q.output,20],['דיוק',q.precision,30]].map(([n,v,m])=>`<div><span>${n}</span><i><b style="width:${v/m*100}%"></b></i><em>${v}/${m}</em></div>`).join('');$('improvements').innerHTML=is.length?is.map(x=>`<p>→ ${x}</p>`).join(''):'<p class="ok">✓ הפרומפט מאוזן ומוכן לשימוש.</p>';$('promptPaper').innerHTML=p?`<pre></pre>`:'<div class="empty-result"><span>✦</span><p>הפרומפט יופיע כאן</p><small>התחילו במשימה או בחרו מטרה</small></div>';if(p)$('promptPaper').querySelector('pre').textContent=p;$('copyButton').disabled=!form.task.trim()||suspicious(form.task);$('checklist').innerHTML=[['המשימה ברורה',q.task>=15],['קהל והקשר מספיקים למשימה',q.context>=8],['התוצר מוגדר',q.output>=8],['יש מנגנון דיוק/בקרה',q.precision>=8]].map(([x,ok])=>`<p class="${ok?'ok':'miss'}">${ok?'✓':'!'} ${x}</p>`).join('');renderNav()}
+function renderNav(){document.querySelectorAll('.step-view').forEach((e,i)=>e.classList.toggle('active',i===step));document.querySelectorAll('#stepper button').forEach((e,i)=>e.classList.toggle('active',i===step));$('stepNumber').textContent=step+1;$('stepLabel').textContent=steps[step][0];$('stepTitle').textContent=steps[step][1];$('prevButton').disabled=step===0;$('nextButton').innerHTML=step===3?'העתקת הפרומפט':'לשלב הבא <span>←</span>';if(step===3)$('nextButton').disabled=!form.task.trim()||suspicious(form.task);else $('nextButton').disabled=false}
+function save(){localStorage.setItem('prompt-builder-he-v3',JSON.stringify(form))}function sync(){fields.forEach(id=>{const e=$(id);if(!e)return;e.type==='checkbox'?e.checked=!!form[id]:e.value=form[id]||''});render()}
+function append(id,val){if(!form[id])form[id]=val;else if(!form[id].includes(val))form[id]+=', '+val;sync();save()}
+async function copy(){const text=build();if(!text||suspicious(form.task))return;try{await navigator.clipboard.writeText(text)}catch{}const b=$('copyButton'),old=b.innerHTML;b.innerHTML='✓ הועתק!';setTimeout(()=>b.innerHTML=old,1500)}
+function init(){try{form={...empty,...JSON.parse(localStorage.getItem('prompt-builder-he-v3')||'{}')}}catch{}purposes.forEach(p=>{const b=document.createElement('button');b.innerHTML=`<span>${p.icon}</span>${p.label}`;b.onclick=()=>{form.purpose=p.id;Object.entries(p.seed).forEach(([k,v])=>{if(!form[k])form[k]=v});sync();save();$('task').focus()};$('purposeList').appendChild(b)});steps.forEach((s,i)=>{const b=document.createElement('button');b.innerHTML=`<span>${i+1}</span><b>${s[0]}</b>`;b.onclick=()=>{step=i;renderNav()};$('stepper').appendChild(b)});fields.forEach(id=>{const e=$(id);if(!e)return;['input','change'].forEach(ev=>e.addEventListener(ev,()=>{form[id]=e.type==='checkbox'?e.checked:e.value;save();render()}))});[['contextChips','45 דקות','context'],['contextChips','עבודה בזוגות','context'],['contextChips','כיתה הטרוגנית','context'],['formatChips','טבלה השוואתית','format'],['formatChips','שלבים ממוספרים','format'],['formatChips','דוגמה מלאה','format'],['toneChips','עברית פשוטה','tone'],['toneChips','מקצועי ונגיש','tone']].forEach(([box,val,id])=>{const b=document.createElement('button');b.textContent=val;b.onclick=()=>append(id,val);$(box).appendChild(b)});$('prevButton').onclick=()=>{if(step){step--;renderNav()}};$('nextButton').onclick=()=>{if(step<3){step++;renderNav()}else copy()};$('copyButton').onclick=copy;$('clearButton').onclick=()=>{form={...empty};step=0;sync();save()};const modal=$('tipsModal'),close=()=>modal.hidden=true;$('openTips').onclick=()=>modal.hidden=false;$('closeTips').onclick=close;$('acceptTips').onclick=close;modal.onclick=e=>{if(e.target===modal)close()};sync()}
+document.addEventListener('DOMContentLoaded',init);
